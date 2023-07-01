@@ -15,7 +15,7 @@ constexpr int STATE64M = STATE64-1;
 constexpr int HSTATE64M = HSTATE64-1;
 alignas(uint64_t) uint8_t disco_buf[STATE] = {0};
 constexpr uint64_t P = 0xFFFFFFFFFFFFFFFF - 58;
-constexpr uint64_t Q = 13166748625691186689U;
+constexpr uint64_t Q = UINT64_C(13166748625691186689);
 alignas(uint64_t) uint8_t *ds8 = (uint8_t *)disco_buf;
 uint64_t *ds = (uint64_t *)disco_buf;
 
@@ -53,7 +53,7 @@ uint64_t *ds = (uint64_t *)disco_buf;
   {
     int index = 0;
     int sindex = 0;
-    uint64_t counter = 0xfaccadaccad09997;
+    uint64_t counter = UINT64_C(0xfaccadaccad09997);
     uint8_t counter8 = 137;
 
     for( int Len = len >> 3; index < Len; index++) {
