@@ -13,6 +13,10 @@ void newdisco_64(const void* key, int len, unsigned seed, void* out) {
     const uint8_t* data = reinterpret_cast<const uint8_t*>(key);
     uint64_t hash = seed + PRIME_MULTIPLIER + len;
 
+    // Allocate memory for alignment
+    alignas(uint64_t) uint8_t aligned_data[len];
+    memcpy(aligned_data, data, len);
+
     // Process 64-bit blocks
     int num_blocks = len / 8;
     if ( num_blocks >= 32 ) {
@@ -23,7 +27,7 @@ void newdisco_64(const void* key, int len, unsigned seed, void* out) {
         #pragma omp for
         for (int i = 0; i < num_blocks; i++) {
             uint64_t block;
-            memcpy(&block, data + i * 8, 8);
+            memcpy(&block, aligned_data + i * 8, 8);
             
             thread_hash ^= block + len + i;
             thread_hash = rotl64(thread_hash, 13);
@@ -34,7 +38,7 @@ void newdisco_64(const void* key, int len, unsigned seed, void* out) {
     } else {
       for (int i = 0; i < num_blocks; i++) {
           uint64_t block;
-          memcpy(&block, data + i * 8, 8);
+          memcpy(&block, aligned_data + i * 8, 8);
           
           hash ^= block + len + i;
           hash = rotl64(hash, 13);
@@ -45,7 +49,7 @@ void newdisco_64(const void* key, int len, unsigned seed, void* out) {
     // Process leftover bytes
     int offset = num_blocks * 8;
     for (int i = 0; i < len - offset; i++) {
-        hash ^= data[offset + i] + len + i;
+        hash ^= aligned_data[offset + i] + len + i;
         hash = rotl64(hash, 5);
         hash = hash * PRIME_MULTIPLIER + 0xBF58476D1CE4E5B9ULL;
     }
