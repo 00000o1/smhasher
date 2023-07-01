@@ -6,6 +6,10 @@
 #include <atomic>
 #include <mutex>
 #include <algorithm>
+#include <execution>
+#include <future>
+#include <vector>
+#include <omp.h> // For OpenMP
 
 constexpr uint64_t PRIME_MULTIPLIER = 0x880355f21e6d1965ULL;
 
@@ -36,37 +40,26 @@ void process_chunk(const uint8_t* data, int len, unsigned seed, uint64_t& interm
     intermediate_hash ^= hash;
 }
 
+
 void newdisco_64(const void* key, int len, unsigned seed, void* out) {
     const uint8_t* data = reinterpret_cast<const uint8_t*>(key);
 
-    // Using half the number of hardware threads to reduce context-switching overhead
-    unsigned int num_threads = std::max(1u, std::thread::hardware_concurrency() / 2);
-    std::vector<std::thread> threads;
-    // Padding the size to avoid false sharing
-    alignas(64) std::vector<uint64_t> intermediate_hashes(num_threads, 0);
-
-    int chunk_size = (len + num_threads - 1) / num_threads;
-
-    for (unsigned int i = 0; i < num_threads; ++i) {
-        int chunk_start = i * chunk_size;
-        int chunk_len = std::min(chunk_size, len - chunk_start);
-        if (chunk_len <= 0) break;
-
-        // Emplace_back is used to avoid unnecessary move or copy
-        threads.emplace_back(process_chunk, data + chunk_start, chunk_len, seed, std::ref(intermediate_hashes[i]));
-    }
-
-    for (auto& th : threads) {
-        if (th.joinable()) {
-            th.join();
-        }
-    }
-
     uint64_t hash = seed + PRIME_MULTIPLIER;
-    for (auto interm_hash : intermediate_hashes) {
-        hash ^= interm_hash;
-        hash = rotl64(hash, 13);
-        hash = hash * PRIME_MULTIPLIER + 0x9E3779B97F4A7C15ULL;
+
+    #pragma omp parallel reduction(^: hash)
+    {
+        uint64_t thread_hash = 0;
+        #pragma omp for
+        for (int i = 0; i < len; i += 8) {
+            uint64_t block;
+            memcpy(&block, data + i, 8);
+
+            thread_hash ^= block;
+            thread_hash = rotl64(thread_hash, 13);
+            thread_hash = thread_hash * PRIME_MULTIPLIER + 0x9E3779B97F4A7C15ULL;
+        }
+
+        hash ^= thread_hash;
     }
 
     // Finalization
