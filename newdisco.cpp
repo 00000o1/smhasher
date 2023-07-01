@@ -15,7 +15,7 @@ inline uint64_t rotl64(uint64_t x, int8_t r) {
 void newdisco_64(const void* key, int len, unsigned seed, void* out) {
     const uint8_t* data = reinterpret_cast<const uint8_t*>(key);
 
-    uint64_t hash = seed + PRIME_MULTIPLIER;
+    uint64_t hash = seed + PRIME_MULTIPLIER + len;
 
     // Align the input data to 8-byte boundaries
     alignas(8) uint8_t aligned_data[len];
@@ -28,7 +28,7 @@ void newdisco_64(const void* key, int len, unsigned seed, void* out) {
         for (int i = 0; i < len / 8; i++) {
             uint64_t block = data64[i];
 
-            hash ^= block;
+            hash ^= block + len + 1 + i;
             hash = rotl64(hash, 13);
             hash = hash * PRIME_MULTIPLIER + 0x9E3779B97F4A7C15ULL;
         }
@@ -37,7 +37,7 @@ void newdisco_64(const void* key, int len, unsigned seed, void* out) {
         for (int i = 0; i < len / 8; i++) {
             uint64_t block = data64[i];
 
-            hash ^= block;
+            hash ^= block + len + 1 + i;
             hash = rotl64(hash, 13);
             hash = hash * PRIME_MULTIPLIER + 0x9E3779B97F4A7C15ULL;
         }
@@ -47,7 +47,7 @@ void newdisco_64(const void* key, int len, unsigned seed, void* out) {
     uint64_t remainder_hash = 0;
     int offset = (len / 8) * 8;
     for (int i = 0; i < len - offset; i++) {
-        remainder_hash ^= aligned_data[offset + i];
+        remainder_hash ^= aligned_data[offset + i] + len + 1 + i;
         remainder_hash = rotl64(remainder_hash, 5);
         remainder_hash = remainder_hash * PRIME_MULTIPLIER + 0xBF58476D1CE4E5B9ULL;
     }
