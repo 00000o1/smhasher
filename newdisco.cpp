@@ -35,6 +35,8 @@ uint64_t *ndcs = (uint64_t *)ndisco_c_buf;
     return v; 
   }
 
+  /* 
+  // iteration 1
   static inline void mix(const int A)
   {
       // mixing two 64-bit values
@@ -54,6 +56,43 @@ uint64_t *ndcs = (uint64_t *)ndisco_c_buf;
       ndcs[A] = x;
       ndcs[A + 1] = y;
   }
+  */
+
+  /* 
+  // iteration 2
+  static inline void mix(const int A)
+  {
+      // mixing two 64-bit values
+      uint64_t x = ndcs[A];
+      uint64_t y = ndcs[A + 1];
+
+      // mixing x with y, and y with x
+      x ^= rot(y, 13);
+      y ^= rot(x, 25);
+      x ^= rot(y, 27);
+
+      // replacing multiplication with additional bit manipulations for speed
+      x = (x << 5) | (x >> (64 - 5)); // left rotate by 5 bits
+      y = (y << 17) | (y >> (64 - 17)); // left rotate by 17 bits
+
+      // Storing back mixed values
+      ndcs[A] = y;
+      ndcs[A + 1] = x;
+  }
+  */
+
+  static inline void mix(const int A)
+  {
+      uint64_t x = ndcs[A];
+      uint64_t y = ndcs[A + 1];
+
+      x ^= y;
+      y ^= (x << 7) | (x >> (64 - 7));
+
+      ndcs[A] = x;
+      ndcs[A + 1] = y;
+  }
+
 
   static inline void round( const uint64_t * m64, const uint8_t * m8, int len )
   {
