@@ -13,48 +13,29 @@ void newdisco_64(const void* key, int len, unsigned seed, void* out) {
     const uint8_t* data = reinterpret_cast<const uint8_t*>(key);
     uint64_t hash = seed + PRIME_MULTIPLIER + len;
 
-    // Check alignment
-    uintptr_t misalignment = reinterpret_cast<uintptr_t>(data) % alignof(uint64_t);
-
     // Process leading misaligned bytes
-    for (int i = 0; i < misalignment && i < len; ++i) {
+    int i = 0;
+    while (reinterpret_cast<uintptr_t>(data + i) % alignof(uint64_t) != 0 && i < len) {
         hash ^= data[i] + len + i;
         hash = rotl64(hash, 5);
         hash = hash * PRIME_MULTIPLIER + 0xBF58476D1CE4E5B9ULL;
+        i++;
     }
 
     // Process 64-bit blocks
-    int num_blocks = (len - misalignment) / 8;
-    if (num_blocks >= 32) {
-        #pragma omp parallel reduction(^: hash)
-        {
-            uint64_t thread_hash = 0;
-            #pragma omp for
-            for (int i = 0; i < num_blocks; i++) {
-                uint64_t block;
-                memcpy(&block, data + misalignment + i * 8, 8);
+    int num_blocks = (len - i) / 8;
+    for (; i < num_blocks * 8 + i; i += 8) {
+        uint64_t block;
+        memcpy(&block, data + i, 8);
 
-                thread_hash ^= block + len + i;
-                thread_hash = rotl64(thread_hash, 13);
-                thread_hash = thread_hash * PRIME_MULTIPLIER + 0x9E3779B97F4A7C15ULL;
-            }
-            hash ^= thread_hash;
-        }
-    } else {
-        for (int i = 0; i < num_blocks; i++) {
-            uint64_t block;
-            memcpy(&block, data + misalignment + i * 8, 8);
-
-            hash ^= block + len + i;
-            hash = rotl64(hash, 13);
-            hash = hash * PRIME_MULTIPLIER + 0x9E3779B97F4A7C15ULL;
-        }
+        hash ^= block + len + i;
+        hash = rotl64(hash, 13);
+        hash = hash * PRIME_MULTIPLIER + 0x9E3779B97F4A7C15ULL;
     }
 
     // Process leftover bytes
-    int offset = misalignment + num_blocks * 8;
-    for (int i = 0; i < len - offset; i++) {
-        hash ^= data[offset + i] + len + i;
+    for (; i < len; i++) {
+        hash ^= data[i] + len + i;
         hash = rotl64(hash, 5);
         hash = hash * PRIME_MULTIPLIER + 0xBF58476D1CE4E5B9ULL;
     }
