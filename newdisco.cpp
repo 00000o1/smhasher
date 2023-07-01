@@ -16,6 +16,13 @@ void newdisco_64(const void* key, int len, unsigned seed, void* out) {
     // Check alignment
     uintptr_t misalignment = reinterpret_cast<uintptr_t>(data) % alignof(uint64_t);
 
+    // Process leading misaligned bytes
+    for (int i = 0; i < misalignment && i < len; ++i) {
+        hash ^= data[i] + len + i;
+        hash = rotl64(hash, 5);
+        hash = hash * PRIME_MULTIPLIER + 0xBF58476D1CE4E5B9ULL;
+    }
+
     // Process 64-bit blocks
     int num_blocks = (len - misalignment) / 8;
     if (num_blocks >= 32) {
