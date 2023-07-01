@@ -398,7 +398,7 @@ HashInfo g_hashes[] =
   // and now the quality hash funcs, slowest first
   { tifuhash_64,          64, TIFU_VERIF, "tifuhash_64", "Tiny Floatingpoint Unique Hash with continued egyptian fractions", GOOD, {} },
   { beamsplitter_64,      64, 0x1BDF358B, "beamsplitter","A possibly universal hash made with a 10x64 s-box.", GOOD, {} },
-  { newdisco_64,          64, 0x3EB5B18B, "newdisco",   "New Discohash 64", GOOD, { } },
+  { newdisco_64,          64, 0x278160CA, "newdisco",   "New Discohash 64", GOOD, { } },
   { DISCoHAsH_64,         64, 0x8FF45ABF, "discohash",   "DISCoHAsH 64 (was BEBB4185) v2", GOOD, { } },
   { DISCoHAsH_512_64,     64, 0x9182A886, "discocrypto", "DISCoHAsH Crypto 512-bit internal state 64", GOOD, { } },
   { fasthash32_test,      32, 0xE9481AFC, "fasthash32",  "fast-hash 32bit", GOOD, {0x880355f21e6d1965ULL} },
