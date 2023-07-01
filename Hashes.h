@@ -1187,6 +1187,7 @@ inline void blake3_64 ( const void * key, int len, unsigned seed, void * out )
 
 // objsize: 452010-45251e: 1294 (DISCoHAsH)
 #include "discohash.h"
+#include "newdisco.h"
 
 #if defined(HAVE_SSE2) && defined(HAVE_AESNI) && !defined(_MSC_VER)
 /* https://gist.github.com/majek/96dd615ed6c8aa64f60aac14e3f6ab5a plus seed */
