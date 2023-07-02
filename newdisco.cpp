@@ -3,10 +3,10 @@
 #include <cstring>
 #include <cstdio>
 
-const uint64_t PRIME_P = 15334707568420170289ULL;
-const uint64_t GENERATOR_P = 543348099158678342ULL;
-const uint64_t PRIME_Q = 13166748625691186689ULL;
-const uint64_t GENERATOR_Q = 5959067535168469117ULL;
+const uint64_t PRIME_P = 15616803872251364161ULL;
+const uint64_t GENERATOR_P = 794847261ULL;
+const uint64_t PRIME_Q = 17879893192455825239ULL;
+const uint64_t GENERATOR_Q = 1896919883ULL;
 
 inline uint64_t rotl64(uint64_t x, int8_t r) {
     return (x << r) | (x >> (64 - r));
@@ -19,11 +19,8 @@ void newdisco_64(const void* key, int len, unsigned seed, void* out) {
     memcpy(aligned_data, data, len);
     const uint64_t* data64 = reinterpret_cast<const uint64_t*>(aligned_data);
 
-    uint64_t state_p = len;
-    state_p -= seed;
-    state_p = state_p << 32 | (seed + len);
-
-    uint64_t state_q = ~state_p;
+    uint64_t state_p = 2 + (len + 1) * seed;
+    uint64_t state_q = 1 + (len - 1) ^ seed;
 
     // Processing 128-bit (two 64-bit blocks) per turn
     for (int i = 0; i < len / 16; i++) {
@@ -31,15 +28,6 @@ void newdisco_64(const void* key, int len, unsigned seed, void* out) {
         state_p = ((state_p + data64[2*i]) * GENERATOR_P) % PRIME_P;
         // Block 2
         state_q = ((state_q + data64[2*i + 1]) * GENERATOR_Q) % PRIME_Q;
-
-        // Print statements
-        /*
-        printf("Block %d:\n", i);
-        printf("    message P: %llu\n", data64[2*i]);
-        printf("    state P:   %llu\n", state_p);
-        printf("    message Q: %llu\n", data64[2*i + 1]);
-        printf("    state Q:   %llu\n", state_q);
-        */
     }
 
     // Processing remaining bytes
@@ -53,14 +41,6 @@ void newdisco_64(const void* key, int len, unsigned seed, void* out) {
     if (len - offset > 0) {
         state_p = ((state_p + remainder_p) * GENERATOR_P) % PRIME_P;
         state_q = ((state_q + remainder_q) * GENERATOR_Q) % PRIME_Q;
-        // Print statements
-        /*
-        printf("Remainder:\n");
-        printf("    remainder P: %llu\n", remainder_p);
-        printf("    state P:     %llu\n", state_p);
-        printf("    remainder Q: %llu\n", remainder_q);
-        printf("    state Q:     %llu\n", state_q);
-        */
     }
     state_p = ((state_p ^ len) * GENERATOR_P) % PRIME_P;
     state_q = ((state_q ^ len) * GENERATOR_Q) % PRIME_Q;
