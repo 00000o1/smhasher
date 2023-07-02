@@ -1,14 +1,13 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <cstdio>
 
 const uint64_t PRIME_P = 15334707568420170289ULL;
-const uint64_t GENERATOR_P = 1888816376ULL;
+const uint64_t GENERATOR_P = 543348099158678342ULL;
+const uint64_t PRIME_Q = 13166748625691186689ULL;
+const uint64_t GENERATOR_Q = 5959067535168469117ULL;
 
-const uint64_t PRIME_Q = 15334707568420170289ULL;
-const uint64_t GENERATOR_Q = 3034954066ULL;
-
-// Rotate left function
 inline uint64_t rotl64(uint64_t x, int8_t r) {
     return (x << r) | (x >> (64 - r));
 }
@@ -20,40 +19,55 @@ void newdisco_64(const void* key, int len, unsigned seed, void* out) {
     memcpy(aligned_data, data, len);
     const uint64_t* data64 = reinterpret_cast<const uint64_t*>(aligned_data);
 
-    uint64_t stateP = len;
-    uint64_t stateQ = len;
-    stateP = (stateP << 32 | (seed + len)) - seed;
-    stateQ = (stateQ << 32 | (seed + len)) - seed;
+    uint64_t state_p = len;
+    state_p -= seed;
+    state_p = state_p << 32 | (seed + len);
 
-    // Processing 128-bit (two 64-bit blocks) per iteration
-    for (int i = 0; i < len / 16; i += 2) {
-        stateP = ((stateP + data64[i]) * GENERATOR_P) % PRIME_P;
-        stateQ = ((stateQ + data64[i + 1]) * GENERATOR_Q) % PRIME_Q;
+    uint64_t state_q = ~state_p;
+
+    // Processing 128-bit (two 64-bit blocks) per turn
+    for (int i = 0; i < len / 16; i++) {
+        // Block 1
+        state_p = ((state_p + data64[2*i]) * GENERATOR_P) % PRIME_P;
+        // Block 2
+        state_q = ((state_q + data64[2*i + 1]) * GENERATOR_Q) % PRIME_Q;
+
+        // Print statements
+        /*
+        printf("Block %d:\n", i);
+        printf("    message P: %llu\n", data64[2*i]);
+        printf("    state P:   %llu\n", state_p);
+        printf("    message Q: %llu\n", data64[2*i + 1]);
+        printf("    state Q:   %llu\n", state_q);
+        */
     }
 
     // Processing remaining bytes
-    uint64_t remainderP = 0;
-    uint64_t remainderQ = 0;
+    uint64_t remainder_p = 0;
+    uint64_t remainder_q = 0;
     int offset = (len / 16) * 16;
-    for (int i = 0; i < len - offset; i++) {
-        if (i < 8) {
-            remainderP |= static_cast<uint64_t>(aligned_data[offset + i]) << (8 * i);
-        } else {
-            remainderQ |= static_cast<uint64_t>(aligned_data[offset + i]) << (8 * (i - 8));
-        }
+    for (int i = 0; i < len - offset; i += 2) {
+        remainder_p |= static_cast<uint64_t>(aligned_data[offset + i]) << (8 * i);
+        remainder_q |= static_cast<uint64_t>(aligned_data[offset + i + 1]) << (8 * i);
     }
-
     if (len - offset > 0) {
-        if (len - offset <= 8) {
-            stateP = ((stateP + remainderP) * GENERATOR_P) % PRIME_P;
-        } else {
-            stateP = ((stateP + remainderP) * GENERATOR_P) % PRIME_P;
-            stateQ = ((stateQ + remainderQ) * GENERATOR_Q) % PRIME_Q;
-        }
+        state_p = ((state_p + remainder_p) * GENERATOR_P) % PRIME_P;
+        state_q = ((state_q + remainder_q) * GENERATOR_Q) % PRIME_Q;
+        // Print statements
+        /*
+        printf("Remainder:\n");
+        printf("    remainder P: %llu\n", remainder_p);
+        printf("    state P:     %llu\n", state_p);
+        printf("    remainder Q: %llu\n", remainder_q);
+        printf("    state Q:     %llu\n", state_q);
+        */
     }
+    state_p = ((state_p ^ len) * GENERATOR_P) % PRIME_P;
+    state_q = ((state_q ^ len) * GENERATOR_Q) % PRIME_Q;
+    state_p = ((state_p ^ len) * GENERATOR_P) % PRIME_P;
+    state_q = ((state_q ^ len) * GENERATOR_Q) % PRIME_Q;
 
-    // Combine the low 32 bits of stateP and stateQ to make 64-bit output hash
-    uint64_t hash = (stateP & 0xFFFFFFFF) | ((stateQ & 0xFFFFFFFF) << 32);
-    memcpy(out, &hash, sizeof(hash));
+    uint64_t result = state_p ^ state_q;
+    memcpy(out, &result, sizeof(result));
 }
 
