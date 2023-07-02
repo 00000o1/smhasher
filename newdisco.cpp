@@ -2,70 +2,68 @@
 #include <cstdlib>
 #include <cstring>
 #include <algorithm>
-#include <omp.h> // For OpenMP
+#include <omp.h>
 
-constexpr uint64_t PRIME_MULTIPLIER = 0xFFFFFFFFFFFFFFFF - 58;
-constexpr uint64_t SEED = 0x9747b28c;
+constexpr uint64_t PRIME_MULTIPLIER1 = 0xC6A4A7935BD1E995;
+constexpr uint64_t PRIME_MULTIPLIER2 = 0x369DEA0F31A53F85;
+constexpr uint64_t ROTATE_BITS = 27;
 
 inline uint64_t rotl64(uint64_t x, int8_t r) {
     return (x << r) | (x >> (64 - r));
 }
 
-inline uint64_t fmix64(uint64_t k) {
-    k ^= k >> 33;
-    k *= 0xff51afd7ed558ccd;
-    k ^= k >> 33;
-    k *= 0xc4ceb9fe1a85ec53;
-    k ^= k >> 33;
-    return k;
-}
-
 void newdisco_64(const void* key, int len, unsigned seed, void* out) {
-  // fast hash that hashes key of length len including seed to produce 64-bit output to out
+    const uint8_t* data = reinterpret_cast<const uint8_t*>(key);
 
-  // Get and align the input data to 8-byte boundaries
-  const uint8_t* data = reinterpret_cast<const uint8_t*>(key);
-  alignas(uint64_t) uint8_t aligned_data[len];
-  memcpy(aligned_data, data, len);
-  const uint64_t* data64 = reinterpret_cast<const uint64_t*>(aligned_data);
+    uint64_t hash = seed ^ (len * PRIME_MULTIPLIER1);
 
-  uint64_t hash = SEED;
+    const uint64_t* chunks = reinterpret_cast<const uint64_t*>(data);
+    int num_chunks = len / 8;
 
-  // parallelize for inputs above a certain size
-  if (len >= 256) {
-    #pragma omp parallel for reduction(^: hash)
-    for (int i = 0; i < len / 8; i++) {
-      uint64_t k = data64[i];
-      k *= PRIME_MULTIPLIER;
-      k ^= k >> 47;
-      k *= PRIME_MULTIPLIER;
-      hash ^= k;
+    // parallelize for inputs above a certain size
+    if (len >= 256) {
+        #pragma omp parallel for reduction(^: hash)
+        for (int i = 0; i < num_chunks; i++) {
+            uint64_t k = chunks[i];
+            k *= PRIME_MULTIPLIER1;
+            k ^= k >> 47;
+            k *= PRIME_MULTIPLIER2;
+            hash ^= k;
+            hash = rotl64(hash, ROTATE_BITS);
+            hash = hash * PRIME_MULTIPLIER1 + PRIME_MULTIPLIER2;
+        }
+    } else {
+        for (int i = 0; i < num_chunks; i++) {
+            uint64_t k = chunks[i];
+            k *= PRIME_MULTIPLIER1;
+            k ^= k >> 47;
+            k *= PRIME_MULTIPLIER2;
+            hash ^= k;
+            hash = rotl64(hash, ROTATE_BITS);
+            hash = hash * PRIME_MULTIPLIER1 + PRIME_MULTIPLIER2;
+        }
     }
-  } else {
-    for (int i = 0; i < len / 8; i++) {
-      uint64_t k = data64[i];
-      k *= PRIME_MULTIPLIER;
-      k ^= k >> 47;
-      k *= PRIME_MULTIPLIER;
-      hash ^= k;
+
+    // deal with non-block sized input left over
+    const uint8_t* tail = data + (num_chunks * 8);
+    uint64_t remainder = 0;
+    for (int i = 0; i < len % 8; i++) {
+        remainder |= uint64_t(tail[i]) << (i * 8);
     }
-  }
+    remainder *= PRIME_MULTIPLIER1;
+    remainder ^= remainder >> 47;
+    remainder *= PRIME_MULTIPLIER2;
+    hash ^= remainder;
+    hash = rotl64(hash, ROTATE_BITS);
+    hash = hash * PRIME_MULTIPLIER1 + PRIME_MULTIPLIER2;
 
-  // deal with non-block sized input left over
-  uint64_t remainder_hash = 0;
-  int offset = (len / 8) * 8;
-  for (int i = 0; i < len - offset; i++) {
-    remainder_hash = remainder_hash | (aligned_data[offset + i] << (8 * i));
-  }
-  remainder_hash *= PRIME_MULTIPLIER;
-  remainder_hash ^= remainder_hash >> 47;
-  remainder_hash *= PRIME_MULTIPLIER;
-  hash ^= remainder_hash;
+    // finalize
+    hash ^= hash >> 33;
+    hash *= PRIME_MULTIPLIER2;
+    hash ^= hash >> 29;
+    hash *= PRIME_MULTIPLIER1;
+    hash ^= hash >> 18;
 
-  // finalize
-  hash ^= len;
-  hash = fmix64(hash);
-
-  memcpy(out, &hash, sizeof(hash));
+    memcpy(out, &hash, sizeof(hash));
 }
 
