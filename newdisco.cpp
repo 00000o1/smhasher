@@ -3,10 +3,10 @@
 #include <cstring>
 #include <cstdio>
 
-const uint64_t PRIME_P = 15616803872251364161ULL;
-const uint64_t GENERATOR_P = 794847261ULL;
-const uint64_t PRIME_Q = 17879893192455825239ULL;
-const uint64_t GENERATOR_Q = 1896919883ULL;
+const uint64_t PRIME_P = 410105453987440927;
+const uint64_t GENERATOR_P = 122507474825287071;
+const uint64_t PRIME_Q = 577898295939987293;
+const uint64_t GENERATOR_Q = 534712801256041965;
 
 inline uint64_t rotl64(uint64_t x, int8_t r) {
     return (x << r) | (x >> (64 - r));
@@ -21,13 +21,18 @@ void newdisco_64(const void* key, int len, unsigned seed, void* out) {
 
     uint64_t state_p = 2 + (len + 1) * seed;
     uint64_t state_q = 1 + (len - 1) ^ seed;
+    uint64_t temp = 0;
 
     // Processing 128-bit (two 64-bit blocks) per turn
-    for (int i = 0; i < len / 16; i++) {
-        // Block 1
-        state_p = ((state_p + data64[2*i]) * GENERATOR_P) % PRIME_P;
-        // Block 2
-        state_q = ((state_q + data64[2*i + 1]) * GENERATOR_Q) % PRIME_Q;
+    for (int i = 0; i < len / 8; i+=2) {
+        temp = data64[i] % PRIME_P;
+        temp *= GENERATOR_P;
+        temp %= PRIME_P;
+        state_p += temp;
+        temp = data64[i+1] % PRIME_Q;
+        temp *= GENERATOR_Q;
+        temp %= PRIME_Q;
+        state_q += temp;
     }
 
     // Processing remaining bytes
@@ -39,15 +44,24 @@ void newdisco_64(const void* key, int len, unsigned seed, void* out) {
         remainder_q |= static_cast<uint64_t>(aligned_data[offset + i + 1]) << (8 * i);
     }
     if (len - offset > 0) {
-        state_p = ((state_p + remainder_p) * GENERATOR_P) % PRIME_P;
-        state_q = ((state_q + remainder_q) * GENERATOR_Q) % PRIME_Q;
+        temp = remainder_p % PRIME_P;
+        temp *= GENERATOR_P;
+        temp %= PRIME_P;
+        state_p += temp;
+        temp = remainder_q % PRIME_Q;
+        temp *= GENERATOR_Q;
+        temp %= PRIME_Q;
+        state_q += temp;
     }
-    state_p = ((state_p ^ len) * GENERATOR_P) % PRIME_P;
-    state_q = ((state_q ^ len) * GENERATOR_Q) % PRIME_Q;
-    state_p = ((state_p ^ len) * GENERATOR_P) % PRIME_P;
-    state_q = ((state_q ^ len) * GENERATOR_Q) % PRIME_Q;
+    state_p = ((state_p + len) * GENERATOR_P) % PRIME_P;
+    state_q = ((state_q + len) * GENERATOR_Q) % PRIME_Q;
+    state_p = ((state_p - len) * GENERATOR_P) % PRIME_P;
+    state_q = ((state_q - len) * GENERATOR_Q) % PRIME_Q;
 
-    uint64_t result = state_p ^ state_q;
+    uint64_t result = 0;
+    result -= state_p;
+    result -= state_q;
+
     memcpy(out, &result, sizeof(result));
 }
 
